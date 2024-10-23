@@ -3,7 +3,23 @@ from pathlib import Path
 import json
 import random
 from transformers import T5Tokenizer, T5ForConditionalGeneration, Trainer, TrainingArguments
+import torch
+from torch.utils.data import Dataset
 
+device_type = "mps"
+device = torch.device(device_type)
+torch.mps.set_per_process_memory_fraction(0.0)
+
+class CustomDataset(Dataset):
+    def __init__(self, encodings):
+        self.encodings = encodings
+
+    def __getitem__(self, idx):
+        item = {key: torch.tensor(val[idx]) for key, val in self.encodings.items()}
+        return item
+
+    def __len__(self):
+        return len(self.encodings.input_ids)
 
 def preprocess_function(examples, tokenizer):
     inputs = []
@@ -19,7 +35,7 @@ def preprocess_function(examples, tokenizer):
     label_inputs = tokenizer(labels, max_length=512, truncation=True, padding="max_length", return_tensors="pt")
 
     model_inputs["labels"] = label_inputs["input_ids"]
-    return model_inputs
+    return CustomDataset(model_inputs)
 
 def load_data_from_dir(dir):
     all_examples = []
@@ -41,9 +57,11 @@ def main(args):
 
     random.seed(args.seed)
 
+    model_path = '/Users/igyuseob/Downloads/1_et5_download_mask_iii_base'
+
     # 토크나이저 및 모델 불러오기
-    tokenizer = T5Tokenizer.from_pretrained("ETRI/et5-base")
-    model = T5ForConditionalGeneration.from_pretrained("ETRI/et5-base")
+    tokenizer = T5Tokenizer.from_pretrained(model_path)
+    model = T5ForConditionalGeneration.from_pretrained(model_path).to(device)
 
     # 데이터를 로드
     train_examples = load_data_from_dir(train_dir)
@@ -59,10 +77,10 @@ def main(args):
     training_args = TrainingArguments(
         output_dir=output_dir,
         evaluation_strategy="epoch",
-        learning_rate=args.learning_rate,
+        learning_rate=args.lr,
         per_device_train_batch_size=args.batch_size,
         per_device_eval_batch_size=args.batch_size,
-        num_train_epochs=args.epochs,
+        num_train_epochs=args.epoch,
         weight_decay=0.01,
         save_steps=1000,
         save_total_limit=3,
