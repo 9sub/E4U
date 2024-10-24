@@ -18,12 +18,9 @@ from transformers import T5ForConditionalGeneration, T5Tokenizer
 
 def load_model(model_path):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # model = T5ForConditionalGeneration.from_pretrained(model_path).to(device)
-    # tokenizer = T5TokenizerFast.from_pretrained(model_path)
-    tokenizer = T5Tokenizer(vocab_file='/Users/igyuseob/Downloads/1_et5_download_mask_iii_base/spiece.model', config='/Users/igyuseob/Downloads/1_et5_download_mask_iii_base/config.json')
-
-# 모델 불러오기 (config.json 파일과 weight를 불러오기)
-    model = T5ForConditionalGeneration.from_pretrained('/Users/igyuseob/Downloads/1_et5_download_mask_iii_base', config='/Users/igyuseob/Downloads/1_et5_download_mask_iii_base/config.json')
+    model = T5ForConditionalGeneration.from_pretrained(model_path).to(device)
+    tokenizer = T5TokenizerFast.from_pretrained(model_path)
+    #tokenizer = T5Tokenizer(vocab_file='/Users/igyuseob/Downloads/1_et5_download_mask_iii_base/spiece.model', config='/Users/igyuseob/Downloads/1_et5_download_mask_iii_base/config.json')
 
     return model, tokenizer
 
