@@ -20,7 +20,7 @@ def main(args):
     for file_name in os.listdir(mouth_data):
         if file_name.endswith(('.jpg', '.png', '.jpeg')):  # 파일 확장자에 맞게 조정
             file_path = os.path.join(mouth_data, file_name)
-            data.append({"image_path": file_path, "laebl": 1})
+            data.append({"image_path": file_path, "label": 1})
 
     # JSON 파일로 저장
     json_file_path = args.json_file_path
