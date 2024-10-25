@@ -51,7 +51,7 @@ transform = transforms.Compose([
 
 # 모델 정의 (EfficientNet 사용)
 def get_model():
-    model = models.efficientnet_v2_m(pretrained=True)
+    model = models.mobilenet_v2(pretrained=True)
     model.classifier[1] = nn.Linear(model.classifier[1].in_features, 2)  # 구강, 비구강 이진 분류
     return model
 
@@ -59,7 +59,7 @@ def get_model():
 def train_model(model, train_loader, val_loader, criterion, optimizer, device, num_epochs=10, save_path='./output_model/best_model.pth'):
     model.train()
     model.to(device)
-    best_val_accuracy = 0.0  # 초기 베스트 검증 정확도를 0으로 설정
+    best_val_loss = float('inf')  # 초기 베스트 검증 손실을 무한대로 설정
     
     for epoch in range(num_epochs):
         running_loss = 0.0
@@ -68,6 +68,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, device, n
         
         train_loader_tqdm = tqdm(train_loader, desc=f'Epoch [{epoch+1}/{num_epochs}]')
         
+        # Training loop
         for images, labels in train_loader_tqdm:
             images, labels = images.to(device), labels.to(device)
             optimizer.zero_grad()
@@ -89,12 +90,11 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, device, n
         # 검증 데이터 평가
         val_accuracy, val_loss, val_precision, val_recall, val_f1 = evaluate_model(model, val_loader, criterion, device)
         
-
-        # 베스트 모델 저장 (accuracy 기준)
-        if val_accuracy > best_val_accuracy:
-            best_val_accuracy = val_accuracy
-            torch.save(model.state_dict(), save_path)  # 모델 가중치 저장
-            print(f"Best model saved with val_accuracy: {val_accuracy:.2f}%")
+        # 베스트 모델 저장 (loss 기준)
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            torch.save(model, save_path)  # 모델 전체를 저장
+            print(f"Best model saved with val_loss: {val_loss:.4f}")
 
         # wandb에 로그 기록
         wandb.log({
@@ -103,9 +103,6 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, device, n
             "train_accuracy": train_accuracy,
             "val_loss": val_loss,
             "val_accuracy": val_accuracy,
-            "val_precision": val_precision,
-            "val_recall": val_recall,
-            "val_f1_score": val_f1
         })
 
         print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {train_loss:.4f}, Accuracy: {train_accuracy:.2f}%, Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.2f}%")
@@ -120,8 +117,10 @@ def evaluate_model(model, data_loader, criterion, device):
     all_labels = []
     all_preds = []
     
+    # tqdm을 사용하여 검증 데이터 평가
+    data_loader_tqdm = tqdm(data_loader, desc='Validation')
     with torch.no_grad():
-        for images, labels in data_loader:
+        for images, labels in data_loader_tqdm:
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
             loss = criterion(outputs, labels)
@@ -131,6 +130,9 @@ def evaluate_model(model, data_loader, criterion, device):
             correct += (predicted == labels).sum().item()
             all_labels.extend(labels.cpu().numpy())
             all_preds.extend(predicted.cpu().numpy())
+
+            # tqdm 진행 막대 업데이트
+            data_loader_tqdm.set_postfix(val_loss=running_loss / (total / len(images)), val_accuracy=100 * correct / total)
 
     accuracy = 100 * correct / total
     loss = running_loss / len(data_loader)
