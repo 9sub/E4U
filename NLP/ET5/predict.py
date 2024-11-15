@@ -17,7 +17,7 @@ from transformers import T5ForConditionalGeneration, T5TokenizerFast
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 
 def load_model(model_path):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("mps" if torch.cuda.is_available() else "cpu")
     model = T5ForConditionalGeneration.from_pretrained(model_path).to(device)
     tokenizer = T5TokenizerFast.from_pretrained(model_path)
     #tokenizer = T5Tokenizer(vocab_file='/Users/igyuseob/Downloads/1_et5_download_mask_iii_base/spiece.model', config='/Users/igyuseob/Downloads/1_et5_download_mask_iii_base/config.json')
