@@ -25,11 +25,9 @@ def generate_answer(input_text: str) -> str:
     with torch.no_grad():
         output = model.generate(
             input_ids,
-            max_length=512,
-            num_beams=5,
+            max_length=300 ,
             no_repeat_ngram_size=2,
-            early_stopping=True,
-            top_p=1,
+            do_sample=True,
         )
 
     decoded_output = tokenizer.decode(
