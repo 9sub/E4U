@@ -16,6 +16,6 @@ def call_gpt(prompt: str, max_tokens: int = 100):
             max_tokens=max_tokens,
             temperature=0.7
         )
-        return response.choices[0].message['content']
+        return response.choices[0].message.content
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

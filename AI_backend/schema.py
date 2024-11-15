@@ -6,4 +6,3 @@ class InputText(BaseModel):
 
 class GPTRequest(BaseModel):
     prompt: str
-    max_tokens: int = 100

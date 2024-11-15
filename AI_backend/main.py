@@ -1,26 +1,24 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.responses import FileResponse
 from io import BytesIO
 import torch
 from torchvision.models.mobilenetv2 import MobileNetV2
 import torch
+from ultralytics import YOLO
+import uuid
+import os
+import shutil
+import time
+import tiktoken
 
-torch.serialization.add_safe_globals([MobileNetV2])
 
-
-
-from is_mouth_predict import preprocess_image, infer, load_model
-from et5_predict import generate_answer
+from predict.is_mouth_predict import preprocess_image, infer, load_model
+from predict.et5_predict import generate_answer
 from schema import InputText, GPTRequest
 from gpt import call_gpt
 
 app = FastAPI()
 
-
-@app.post("/et5-predict")
-async def predict(input_data: InputText):
-    input_text = input_data.text
-    result = generate_answer(input_text)
-    return {"output": result}
 
 @app.post("/is_mouth/")
 async def predict(file: UploadFile = File(...)):
@@ -47,8 +45,41 @@ async def predict(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/detect/")
+async def detect_image(file: UploadFile = File(...)):
+    temp_file = f"./result/before_inference/temp_{uuid.uuid4()}.jpg"
+    with open(temp_file, 'wb') as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    # 모델 불러오기 및 추론
+    model = YOLO('/Users/igyuseob/Desktop/ai_github/dev/AI_backend/models/detection_final.pt')
+    model.predict(temp_file, conf=0.3, save=True, project="result", name="inference", exist_ok=True)
+
+    # 결과 파일 경로 설정 및 확인
+    output_image_path = f"result/inference/{os.path.basename(temp_file)}"
+    # 결과 파일이 생성될 때까지 최대 30초 대기
+    timeout = 30
+    while not os.path.exists(output_image_path) and timeout > 0:
+        time.sleep(1)
+        timeout -= 1
+
+    if not os.path.exists(output_image_path):
+        raise HTTPException(status_code=404, detail="Result file not found")
+
+    return FileResponse(output_image_path)
+
+
+@app.post("/et5-predict")
+async def predict(input_data: InputText):
+    input_text = input_data.text
+    result = generate_answer(input_text)
+    return {"output": result}
 
 @app.post("/gpt/")
 async def gpt_endpoint(request: GPTRequest):
-    result = call_gpt(prompt=request.prompt, max_tokens=request.max_tokens)
-    return {"response": result}
+    encoding = tiktoken.get_encoding("cl100k_base")
+    # 주어진 모델 이름에 대해 올바른 인코딩을 자동으로 로드
+    encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
+    max_tokens=len(encoding.encode(request.prompt)) - 150
+    result = call_gpt(prompt=request.prompt, max_tokens=max_tokens)
+    return {"response": result, "max_tokens": max_tokens}
