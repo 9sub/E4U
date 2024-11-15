@@ -9,16 +9,15 @@ import uuid
 import os
 import shutil
 import time
-import tiktoken
 
 
 from predict.is_mouth_predict import preprocess_image, infer, load_model
 from predict.et5_predict import generate_answer
 from schema import InputText, GPTRequest
 from gpt import call_gpt
+from utils.calculate_max_tokens import check_max_tokens
 
 app = FastAPI()
-
 
 @app.post("/is_mouth/")
 async def predict(file: UploadFile = File(...)):
@@ -39,9 +38,9 @@ async def predict(file: UploadFile = File(...)):
         predicted_class = infer(model, image_tensor, device)
 
         # 구강 이미지 여부 확인 (예시로 클래스 0이 구강 이미지로 가정)
-        is_oral_image = (predicted_class == 1)
+        is_mouth_image = (predicted_class == 1)
 
-        return {"is_oral_image": is_oral_image}
+        return {"is_mouth_image": is_mouth_image}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -53,7 +52,7 @@ async def detect_image(file: UploadFile = File(...)):
 
     # 모델 불러오기 및 추론
     model = YOLO('/Users/igyuseob/Desktop/ai_github/dev/AI_backend/models/detection_final.pt')
-    model.predict(temp_file, conf=0.3, save=True, project="result", name="inference", exist_ok=True)
+    model.predict(temp_file, conf=0.2, save=True, project="result", name="inference", exist_ok=True)
 
     # 결과 파일 경로 설정 및 확인
     output_image_path = f"result/inference/{os.path.basename(temp_file)}"
@@ -73,13 +72,13 @@ async def detect_image(file: UploadFile = File(...)):
 async def predict(input_data: InputText):
     input_text = input_data.text
     result = generate_answer(input_text)
+    to_gpt = "아래 내용 중 의심되는 구강질환을 말해. 그리고 내용 요약해." + f"<{result}>"
+    max_tokens=check_max_tokens(to_gpt)
+    result = call_gpt(prompt=to_gpt, max_tokens=max_tokens)
     return {"output": result}
 
-@app.post("/gpt/")
-async def gpt_endpoint(request: GPTRequest):
-    encoding = tiktoken.get_encoding("cl100k_base")
-    # 주어진 모델 이름에 대해 올바른 인코딩을 자동으로 로드
-    encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
-    max_tokens=len(encoding.encode(request.prompt)) - 150
-    result = call_gpt(prompt=request.prompt, max_tokens=max_tokens)
-    return {"response": result, "max_tokens": max_tokens}
+# @app.post("/gpt/")
+# async def gpt_endpoint(request: GPTRequest):
+#     max_tokens=check_max_tokens(request.prompt)
+#     result = call_gpt(prompt=request.prompt, max_tokens=max_tokens)
+#     return {"response": result, "max_tokens": max_tokens}
