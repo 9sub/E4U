@@ -22,7 +22,7 @@ async def predict(input_data: InputText):
     result = generate_answer(input_text)
     return {"output": result}
 
-@app.post("/predict/")
+@app.post("/is_mouth/")
 async def predict(file: UploadFile = File(...)):
     try:
         # 이미지 읽기 및 전처리
