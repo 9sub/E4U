@@ -13,11 +13,14 @@ import time
 
 from predict.is_mouth_predict import preprocess_image, infer, load_model
 from predict.et5_predict import generate_answer
-from schema import InputText, GPTRequest
+from schema import InputText, GPTRequest, UserStatus
 from gpt import call_gpt
 from utils.calculate_max_tokens import check_max_tokens
+from utils.read_bounding_box import find_bounding_box
 
 app = FastAPI()
+
+user_status = UserStatus()
 
 @app.post("/is_mouth/")
 async def predict(file: UploadFile = File(...)):
@@ -32,7 +35,7 @@ async def predict(file: UploadFile = File(...)):
         print(f"Using device: {device}")
 
         # 모델 로드
-        model_path = '/Users/igyuseob/Desktop/ai_github/dev/AI_backend/models/mobilenetv2_epoch20_lr1e-5_batch16.pth'
+        model_path = './models/mobilenetv2_epoch20_lr1e-5_batch16.pth'
         model = load_model(model_path, device)
         # 추론 수행
         predicted_class = infer(model, image_tensor, device)
@@ -44,31 +47,39 @@ async def predict(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.post("/detect/")
-async def detect_image(file: UploadFile = File(...)):
-    temp_file = f"./result/before_inference/temp_{uuid.uuid4()}.jpg"
+def detect_image(file: UploadFile = File(...)):
+    temp_file = f"./result/before_inference/{uuid.uuid4()}.jpg"
     with open(temp_file, 'wb') as buffer:
         shutil.copyfileobj(file.file, buffer)
 
     # 모델 불러오기 및 추론
     model = YOLO('/Users/igyuseob/Desktop/ai_github/dev/AI_backend/models/detection_final.pt')
-    model.predict(temp_file, conf=0.2, save=True, project="result", name="inference", exist_ok=True)
+    results = model.predict(temp_file, conf=0.2, save=True, project="result", name="inference", exist_ok=True)
 
     # 결과 파일 경로 설정 및 확인
     output_image_path = f"result/inference/{os.path.basename(temp_file)}"
+
+    user_status.image_path = output_image_path
+    user_status.bounding_box=find_bounding_box(output_image_path, results)
+
+    print(user_status.bounding_box)
+
     # 결과 파일이 생성될 때까지 최대 30초 대기
     timeout = 30
     while not os.path.exists(output_image_path) and timeout > 0:
         time.sleep(1)
         timeout -= 1
-
     if not os.path.exists(output_image_path):
         raise HTTPException(status_code=404, detail="Result file not found")
 
-    return FileResponse(output_image_path)
+    return {"output_image_path": output_image_path}
+
+#FileResponse(output_image_path)
 
 
-@app.post("/et5-predict")
+@app.post("/et5_predict")
 async def predict(input_data: InputText):
     input_text = input_data.text
     result = generate_answer(input_text)
@@ -76,6 +87,12 @@ async def predict(input_data: InputText):
     max_tokens=check_max_tokens(to_gpt)
     result = call_gpt(prompt=to_gpt, max_tokens=max_tokens)
     return {"output": result}
+
+
+@app.get('/get_painscore')
+async def get_painscore(level: int):
+    return {"pain_level": level, "message": f"Received pain level: {level}"}
+
 
 # @app.post("/gpt/")
 # async def gpt_endpoint(request: GPTRequest):

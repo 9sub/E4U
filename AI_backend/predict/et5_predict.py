@@ -2,7 +2,7 @@ import torch
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 
 
-MODEL_PATH='/Users/igyuseob/Downloads/dental_talk_data_train_last'
+MODEL_PATH='/Users/igyuseob/Desktop/ai_github/dev/AI_backend/models/et5_dental_model'
 
 # 장치 설정 (MPS 또는 CPU)
 device = torch.device("mps" if torch.cuda.is_available() else "cpu")
