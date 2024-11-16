@@ -17,6 +17,9 @@ from schema import InputText, GPTRequest, UserStatus
 from gpt import call_gpt
 from utils.calculate_max_tokens import check_max_tokens
 from utils.read_bounding_box import find_bounding_box
+from utils.read_segmentation import read_segmentation_file
+from utils.check_image_size import check_image_size
+from utils.check_disease_teeth_num import detect_teeth
 
 app = FastAPI()
 
@@ -32,7 +35,6 @@ async def predict(file: UploadFile = File(...)):
 
         # MPS 또는 CPU 선택
         device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-        print(f"Using device: {device}")
 
         # 모델 로드
         model_path = './models/mobilenetv2_epoch20_lr1e-5_batch16.pth'
@@ -54,27 +56,47 @@ def detect_image(file: UploadFile = File(...)):
     with open(temp_file, 'wb') as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # 모델 불러오기 및 추론
-    model = YOLO('/Users/igyuseob/Desktop/ai_github/dev/AI_backend/models/detection_final.pt')
-    results = model.predict(temp_file, conf=0.2, save=True, project="result", name="inference", exist_ok=True)
+    user_status.image_size = check_image_size(temp_file)
+
+    # detection 모델 로드 및 추론
+    detection_model = YOLO('/Users/igyuseob/Desktop/ai_github/dev/AI_backend/models/detection_final.pt')
+    detection_results = detection_model.predict(temp_file, conf=0.2, save=True, project="result", name="detection", exist_ok=True)
 
     # 결과 파일 경로 설정 및 확인
-    output_image_path = f"result/inference/{os.path.basename(temp_file)}"
+    detection_output_image_path = f"result/detection/{os.path.basename(temp_file)}"
 
-    user_status.image_path = output_image_path
-    user_status.bounding_box=find_bounding_box(output_image_path, results)
+    #detection 결과 이미지 path 저장, bounding box 저장
+    user_status.detection_image_path = detection_output_image_path
+    user_status.bounding_box=find_bounding_box(detection_output_image_path, detection_results)
 
-    print(user_status.bounding_box)
+    #segmentation 모델 로드 및 추론
+    segmentation_model = YOLO('/Users/igyuseob/Desktop/ai_github/dev/AI_backend/models/segmentation_last.pt')
+    segmentation_model.predict(temp_file, save=True, project="result", name="segmentation", save_txt=True, exist_ok=True)
+
+    # 결과 파일 경로 설정 및 확인
+    segmentation_output_image_path = f"result/segmentation/{os.path.basename(temp_file)}"
+
+    #segmentation 결과 이미지 path 저장
+    user_status.segmentation_image_path = segmentation_output_image_path
+
+    txt_filename = os.path.splitext(os.path.basename(temp_file))[0] + ".txt"
+    txt_file_path = os.path.join("result/segmentation/labels", txt_filename)
+    
+    user_status.segmentation_image_path = segmentation_output_image_path
+    user_status.segmentation_data = read_segmentation_file(txt_file_path)
+
+    #print(user_status.segmentation_data)
+    (detect_teeth(user_status))
 
     # 결과 파일이 생성될 때까지 최대 30초 대기
     timeout = 30
-    while not os.path.exists(output_image_path) and timeout > 0:
+    while not os.path.exists(detection_output_image_path) and os.path.exists(segmentation_output_image_path) and timeout > 0:
         time.sleep(1)
         timeout -= 1
-    if not os.path.exists(output_image_path):
+    if not os.path.exists(detection_output_image_path) and os.path.exists(segmentation_output_image_path):
         raise HTTPException(status_code=404, detail="Result file not found")
 
-    return {"output_image_path": output_image_path}
+    return {"detection_output_image_path": detection_output_image_path, "segmentation_output_image_path": segmentation_output_image_path}
 
 #FileResponse(output_image_path)
 
@@ -91,6 +113,7 @@ async def predict(input_data: InputText):
 
 @app.get('/get_painscore')
 async def get_painscore(level: int):
+    user_status.pain_level = level
     return {"pain_level": level, "message": f"Received pain level: {level}"}
 
 

@@ -2,7 +2,8 @@ import os
 
 def find_bounding_box(image_path: str, results):
     txt_filename = os.path.splitext(os.path.basename(image_path))[0] + ".txt"
-    txt_file_path = os.path.join("result/inference/labels", txt_filename)
+    txt_file_path = os.path.join("result/detection/labels", txt_filename)
+    os.makedirs(os.path.dirname(txt_file_path), exist_ok=True)
 
     bbox = []
 
@@ -20,6 +21,9 @@ def find_bounding_box(image_path: str, results):
                 file.write(f"{class_id} {x:.6f} {y:.6f} {w:.6f} {h:.6f} {conf:.6f}\n")
 
                 # Bounding Box 정보 리스트에 추가
-                bbox.append([class_id, x, y, w, h, conf])
+                bbox.append({'class_id':class_id, 
+                             'points':[x, y, w, h], 
+                             'conf':conf
+                             })
 
     return bbox
