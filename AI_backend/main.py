@@ -25,13 +25,6 @@ app = FastAPI()
 
 user_status = UserStatus()
 
-# origins = [
-#     "http://183.101.45.52",
-#     # "http://183.101.45.52:52381",
-#     # "http://183.101.45.52:52390",
-#     # "http://115.91.214.3:54735 ",
-# ]
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -84,10 +77,11 @@ def detect_image(file: UploadFile = File(...)):
 
     # 결과 파일 경로 설정 및 확인
     detection_output_image_path = f"result/detection/{os.path.basename(temp_file)}"
+    before_detection_image_path = f"result/before_inference/{os.path.basename(temp_file)}"
 
     #detection 결과 이미지 path 저장, bounding box 저장
     user_status.detection_image_path = detection_output_image_path
-    user_status.bounding_box=find_bounding_box(detection_output_image_path, detection_results)
+    user_status.bounding_box=find_bounding_box(before_detection_image_path, detection_results)
 
     #segmentation 모델 로드 및 추론
     segmentation_model = YOLO('./models/segmentation_last.pt')
@@ -105,17 +99,17 @@ def detect_image(file: UploadFile = File(...)):
     user_status.segmentation_image_path = segmentation_output_image_path
     user_status.segmentation_data = read_segmentation_file(txt_file_path)
 
-    print(user_status.bounding_box)
+    #print(user_status.bounding_box)
 
     #print(user_status.segmentation_data)
     result = match_diseases_to_teeth(user_status.bounding_box, user_status.segmentation_data)
 
-    for tooth_num, diseases in result.items():
-        print(f"치아 {tooth_num}번의 질환:")
-        for disease in diseases:
-            print(f"  - 질환 ID: {disease['disease_id']}")
-            print(f"    신뢰도: {disease['confidence']:.2f}")
-            print(f"    위치: {disease['location']}")
+    # for tooth_num, diseases in result.items():
+    #     print(f"치아 {tooth_num}번의 질환:")
+    #     for disease in diseases:
+    #         print(f"  - 질환 ID: {disease['disease_id']}")
+    #         print(f"    신뢰도: {disease['confidence']:.2f}")
+    #         print(f"    위치: {disease['location']}")
 
     # 결과 파일이 생성될 때까지 최대 30초 대기
     timeout = 30
