@@ -2,10 +2,10 @@ import torch
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 
 
-MODEL_PATH='/Users/igyuseob/Desktop/ai_github/dev/AI_backend/models/et5_dental_model'
+MODEL_PATH='./models/et5_dental_model'
 
 # 장치 설정 (MPS 또는 CPU)
-device = torch.device("mps" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # 모델 및 토크나이저 로드
 model = T5ForConditionalGeneration.from_pretrained(MODEL_PATH).to(device)
