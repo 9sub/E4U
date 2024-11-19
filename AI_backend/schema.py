@@ -17,4 +17,5 @@ class UserStatus(BaseModel):
     segmentation_image_path: Optional[str] = None
     segmentation_data: Optional[List[Dict[str, List[float]]]] = []
     pain_level: Optional[int] = None
-    #chating: Optional[Dict[str, str]] = {}
+    result: Optional[Dict[str, List[Dict[str, float]]]] = {}
+    chating: Optional[Dict[str, str]] = {}

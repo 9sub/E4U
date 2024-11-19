@@ -6,8 +6,38 @@ FDI_CLASS_MAPPING = {
     41: 18, 42: 19, 43: 20, 44: 21, 45: 22, 46: 23
 }
 
-# 클래스 인덱스를 FDI 번호로 변환하는 역매핑 생성
+# 클래스 인덱스를 FDI 번호로 변환하는 역매핑
 REVERSE_FDI_MAPPING = {v: k for k, v in FDI_CLASS_MAPPING.items()}
+
+# 질병 클래스 매핑
+DISEASE_CLASS_MAP = {
+    0: 'Calculus',
+    1: 'Caries',
+    2: 'CaS',
+    3: 'CoS',
+    4: 'Gingivitis',
+    5: 'Gum',
+    6: 'Hypodontia',
+    7: 'MC',
+    8: 'MouthUlcer',
+    9: 'OLP',
+    10: 'ToothDiscoloration'
+}
+
+# 잇몸 질환 리스트
+GUM_DISEASES = ['CaS', 'CoS', 'Gingivitis', 'Gum', 'MC', 'MouthUlcer']
+
+# 잇몸 영역 정의 (이미지 크기에 따라 조정 필요)
+GUM_REGIONS = {
+    '상악_좌측후방': {'x': (0, 0.25), 'y': (0, 0.5)},
+    '상악_좌측중간': {'x': (0.25, 0.5), 'y': (0, 0.5)},
+    '상악_우측중간': {'x': (0.5, 0.75), 'y': (0, 0.5)},
+    '상악_우측후방': {'x': (0.75, 1.0), 'y': (0, 0.5)},
+    '하악_좌측후방': {'x': (0, 0.25), 'y': (0.5, 1.0)},
+    '하악_좌측중간': {'x': (0.25, 0.5), 'y': (0.5, 1.0)},
+    '하악_우측중간': {'x': (0.5, 0.75), 'y': (0.5, 1.0)},
+    '하악_우측후방': {'x': (0.75, 1.0), 'y': (0.5, 1.0)}
+}
 
 def point_in_polygon(point, polygon):
     """
@@ -15,7 +45,6 @@ def point_in_polygon(point, polygon):
     """
     x, y = point
     inside = False
-    
     j = len(polygon) - 1
     for i in range(len(polygon)):
         if ((polygon[i][1] > y) != (polygon[j][1] > y) and
@@ -23,19 +52,31 @@ def point_in_polygon(point, polygon):
                 (polygon[j][1] - polygon[i][1]) + polygon[i][0]):
             inside = not inside
         j = i
-    
     return inside
 
-def match_diseases_to_teeth(detections, segmentations):
+def get_gum_region(x, y, img_width, img_height):
     """
-    치아 질환 데이터와 치아 경계 데이터를 매칭하여 각 치아별 질환을 찾아내는 함수
+    좌표가 어느 잇몸 영역에 속하는지 확인하는 함수
+    """
+    normalized_x = x# / img_width
+    normalized_y = y# / img_height
+    
+    for region_name, bounds in GUM_REGIONS.items():
+        if (bounds['x'][0] <= normalized_x <= bounds['x'][1] and
+            bounds['y'][0] <= normalized_y <= bounds['y'][1]):
+            return region_name
+    return None
+
+def match_diseases_to_teeth_and_gums(detections, segmentations, img_width, img_height):
+    """
+    치아 질환 데이터와 치아 경계 데이터를 매칭하여 각 치아별, 잇몸 영역별 질환을 찾아내는 함수
     """
     tooth_diseases = {}
+    gum_diseases = {region: [] for region in GUM_REGIONS.keys()}
     
     # detection 데이터 형식 변환
     formatted_detections = []
     for det in detections:
-        # 문자열을 딕셔너리로 변환
         if isinstance(det, str):
             values = det.split()
             formatted_detections.append({
@@ -46,12 +87,11 @@ def match_diseases_to_teeth(detections, segmentations):
             })
         else:
             formatted_detections.append(det)
-    
+
     # segmentation 데이터 형식 변환
     formatted_segments = []
     for seg in segmentations:
         if isinstance(seg, str):
-            # 문자열을 좌표 리스트로 변환
             values = seg.split()
             class_id = int(values[0])
             points = []
@@ -63,33 +103,39 @@ def match_diseases_to_teeth(detections, segmentations):
             })
         else:
             formatted_segments.append(seg)
-    
-    t=0
-    # 각 치아 세그멘테이션에 대해
-    for seg in formatted_segments:
-        class_idx = seg["class_id"]
-        tooth_number = REVERSE_FDI_MAPPING[class_idx]
-        tooth_region = seg["points"]
-        
-        diseases = []
-        
-        # 각 질환 탐지 결과에 대해
-        for detection in formatted_detections:
-            # detection box의 중심점 계산
-            center_x = detection["points"][0] #+ detection["points"][2]/2
-            center_y = detection["points"][1] #+ detection["points"][3]/2
-            
-            # detection box의 중심점이 치아 영역 내에 있는지 확인
-            if point_in_polygon((center_x, center_y), tooth_region):
-                disease_info = {
-                    "disease_id": detection["class_id"],
-                    "confidence": detection["conf"],
-                    "location": detection["points"]
-                }
-                diseases.append(disease_info)
-        
-        if diseases:
-            tooth_diseases[tooth_number] = diseases
-    
-    return tooth_diseases
 
+    # 각 detection에 대해 처리
+    for detection in formatted_detections:
+        disease_name = DISEASE_CLASS_MAP[detection["class_id"]]
+        
+        # detection box의 중심점 계산
+        center_x = detection["points"][0]
+        center_y = detection["points"][1]
+        
+        disease_info = {
+            "disease_id": detection["class_id"],
+            "disease_name": disease_name,
+            "confidence": detection["conf"],
+            "location": detection["points"]
+        }
+        
+        # 잇몸 질환인 경우
+        if disease_name in GUM_DISEASES:
+            region = get_gum_region(center_x, center_y, img_width, img_height)
+            if region:
+                gum_diseases[region].append(disease_info)
+        
+        # 치아 질환인 경우
+        else:
+            # 각 치아 세그멘테이션과 매칭
+            for seg in formatted_segments:
+                if point_in_polygon((center_x, center_y), seg["points"]):
+                    tooth_number = REVERSE_FDI_MAPPING[seg["class_id"]]
+                    if tooth_number not in tooth_diseases:
+                        tooth_diseases[tooth_number] = []
+                    tooth_diseases[tooth_number].append(disease_info)
+    
+    return {
+        "tooth_diseases": tooth_diseases,
+        "gum_diseases": gum_diseases
+    }
