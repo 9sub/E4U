@@ -21,6 +21,8 @@ from utils.read_segmentation import read_segmentation_file
 from utils.check_image_size import check_image_size
 from utils.check_disease_teeth_num import match_diseases_to_teeth_and_gums
 from utils.remove_dup import remove_dup
+from utils.return_json_format import return_json_format
+from danger_point import calculate_danger_score
 
 app = FastAPI()
 
@@ -108,7 +110,7 @@ def detect_image(file: UploadFile = File(...)):
     result = remove_dup(result)
 
     user_status.result = result
-
+    print(user_status.result)
     # 출력 로직
     print("===== 치아 질환 =====")
     for tooth_num, diseases in result['tooth_diseases'].items():
@@ -141,7 +143,8 @@ def detect_image(file: UploadFile = File(...)):
 
 @app.post("/detection_result/")
 def get_detection_result():
-    return user_status.result
+    json_format = return_json_format(user_status.result)
+    return json_format
 
 @app.post("/mouth_front_left_right/")
 async def detect_mouth_front_left_right(file: UploadFile = File(...)):
@@ -151,8 +154,10 @@ async def detect_mouth_front_left_right(file: UploadFile = File(...)):
 
 
 @app.post('/danger_point/')
-async def get_danger_point():
-    return {"danger_point": 1}
+async def get_danger_point(pain_level: int):
+    user_status.pain_level = pain_level
+    danger_point=calculate_danger_score(user_status.result, user_status.pain_level)
+    return {"danger_point": danger_point}
     
 
 
