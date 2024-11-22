@@ -8,13 +8,23 @@ client = OpenAI(
 )
 
 # GPT API 호출 함수
-def call_gpt(prompt: str, max_tokens: int = 100):
+def call_gpt(prompt: str, max_tokens: int = 300):
     try:
+        # response = client.chat.completions.create(
+        #     model="gpt-3.5-turbo",
+        #     messages=[{"role": "user", "content": prompt}],
+        #     max_tokens=max_tokens,
+        #     temperature=0.7
+        # )
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=max_tokens,
-            temperature=0.7
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a helpful dental assistant."},
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],   
         )
         return response.choices[0].message.content
     except Exception as e:

@@ -38,7 +38,7 @@ def find_bounding_box(image_path: str, results):
             # 검출 결과 추가: [class_id, x, y, w, h, conf]
             detections.append([class_id, x, y, w, h, conf])
 
-    suppressed_boxes = nms(detections, threshold=0.6)
+    suppressed_boxes = nms(detections, threshold=0.5)
 
     image = cv2.imread(image_path)
 

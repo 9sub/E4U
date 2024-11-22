@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.responses import FileResponse
 from io import BytesIO
 import torch
@@ -23,6 +23,7 @@ from utils.check_disease_teeth_num import match_diseases_to_teeth_and_gums
 from utils.remove_dup import remove_dup
 from utils.return_json_format import return_json_format
 from danger_point import calculate_danger_score
+from utils.analysis_results_form import analysis_results_form
 
 app = FastAPI()
 
@@ -165,11 +166,6 @@ async def get_danger_point(pain_level: int):
 async def predict(input_data: InputText):
     input_text = input_data.text
     result = generate_answer(input_text)
-    to_gpt = "아래 내용 중 의심되는 구강질환을 말해. 그리고 내용 요약하면서 문맥을 매끄럽게 만들어." + f"<{result}>"
-    max_tokens=check_max_tokens(to_gpt)
-    result = call_gpt(prompt=to_gpt, max_tokens=max_tokens)
-    user_status.chating = {"input": input_text, "output": result}
-    print(user_status.chating)
     return {"output": result}
 
 
@@ -178,9 +174,43 @@ async def get_painscore(level: int):
     user_status.pain_level = level
     return {"pain_level": level, "message": f"Received pain level: {level}"}
 
+@app.post('/chat/')
+async def chat(input_data: InputText):
+    input_text = input_data.text
+    result = call_gpt(prompt=input_text)
+    
+    return {"output": result}
+
+'''
+{
+  "text": "(tooth_num 11 : 충치 tooth_num 31 : 충치 , 위와 아래 치아가 너무 시린 증상이 있어) 괄호 안에는 각 치아별로 질환이 적혀져 있고 쉼표 뒤에는 환자의 증상이 있어 너가 구강질환에 대한 진단을 해줘"
+}
+'''
+
+
+# @app.post('/analysis_results/')
+# async def analysis_results():
+#     result_text = analysis_results_form(user_status.result)
+#     return {"output": result_text}
+
+
+# import base64
+
+# def encode_image_to_base64(file_path: str) -> str:
+#     """
+#     로컬 이미지 파일을 Base64로 인코딩
+#     """
+#     with open(file_path, "rb") as image_file:
+#         return base64.b64encode(image_file.read()).decode("utf-8")
 
 # @app.post("/gpt/")
-# async def gpt_endpoint(request: GPTRequest):
-#     max_tokens=check_max_tokens(request.prompt)
-#     result = call_gpt(prompt=request.prompt, max_tokens=max_tokens)
-#     return {"response": result, "max_tokens": max_tokens}
+# async def gpt_endpoint(prompt: str=Form(...), file: UploadFile = File(...)):
+#     temp_file = f"./result/gpt_image/{uuid.uuid4()}.jpg"
+#     with open(temp_file, 'wb') as buffer:
+#         shutil.copyfileobj(file.file, buffer)
+
+#     image_base64 = encode_image_to_base64(temp_file)
+
+#     max_tokens=check_max_tokens(prompt)
+#     result = call_gpt(prompt=prompt,image_file=image_base64, max_tokens=300)
+#     return {"response": result, "max_tokens": 500}
