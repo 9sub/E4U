@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Request
 from fastapi.responses import FileResponse
 from io import BytesIO
 import torch
@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from predict.is_mouth_predict import preprocess_image, infer, load_model
 from predict.et5_predict import generate_answer
-from schema import InputText, GPTRequest, UserStatus
+from schema import InputText, GPTRequest, UserStatus, result_report
 from gpt import call_gpt
 from utils.calculate_max_tokens import check_max_tokens
 from utils.read_bounding_box import find_bounding_box
@@ -24,6 +24,7 @@ from utils.remove_dup import remove_dup
 from utils.return_json_format import return_json_format
 from danger_point import calculate_danger_score
 from utils.analysis_results_form import analysis_results_form
+from utils.result_report_form import result_report_form
 
 app = FastAPI()
 
@@ -52,7 +53,7 @@ async def predict(file: UploadFile = File(...)):
         
 
         # MPS 또는 CPU 선택
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = torch.device("mps" if torch.backends.mps.is_available else "cpu")
 
         # 모델 로드
         model_path = './models/mobilenetv2_epoch20_lr1e-5_batch16.pth'
@@ -61,7 +62,7 @@ async def predict(file: UploadFile = File(...)):
         predicted_class = infer(model, image_tensor, device)
 
         is_mouth_image = (predicted_class == 1)
-
+        print(is_mouth_image)
         return {"is_mouth_image": is_mouth_image}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -147,11 +148,11 @@ def get_detection_result():
     json_format = return_json_format(user_status.result)
     return json_format
 
-@app.post("/mouth_front_left_right/")
-async def detect_mouth_front_left_right(file: UploadFile = File(...)):
-    temp_file = f"./result/mouth_front_left_right/before_inference/{uuid.uuid4()}.jpg"
-    with open(temp_file, 'wb') as buffer:
-        shutil.copyfileobj(file.file, buffer)
+# @app.post("/mouth_front_left_right/")
+# async def detect_mouth_front_left_right(file: UploadFile = File(...)):
+#     temp_file = f"./result/mouth_front_left_right/before_inference/{uuid.uuid4()}.jpg"
+#     with open(temp_file, 'wb') as buffer:
+#         shutil.copyfileobj(file.file, buffer)
 
 
 @app.post('/danger_point/')
@@ -162,17 +163,31 @@ async def get_danger_point(pain_level: int):
     
 
 
-@app.post("/et5_predict/")
-async def predict(input_data: InputText):
-    input_text = input_data.text
-    result = generate_answer(input_text)
-    return {"output": result}
+# @app.post("/et5_predict/")
+# async def predict(input_data: InputText):
+#     input_text = input_data.text
+#     result = generate_answer(input_text)
+#     return {"output": result}
 
 
-@app.get('/get_painscore')
-async def get_painscore(level: int):
-    user_status.pain_level = level
-    return {"pain_level": level, "message": f"Received pain level: {level}"}
+# @app.get('/get_painscore')
+# async def get_painscore(level: int):
+#     user_status.pain_level = level
+#     return {"pain_level": level, "message": f"Received pain level: {level}"}
+
+
+@app.post('/result_report/')
+async def result_report(data : result_report):
+    input_text_result, input_text_detailed_result = result_report_form(data)
+
+    input_text_result += "\n 질병 위치와 치과방문 권유만 분석해. 하나의 텍스트로 작성해. 말투는 정중하게 마지막 인사는 제외해."
+    input_text_detailed_result += "\n 환자의 증상과 질환을 통해 원인과 증상만 자세하게 분석하고 치아위치는 제외해. 하나의 텍스트로 작성해. 말투는 정중하게 사용자에게 말하는 것처럼, 마지막 인사는 제외해."
+    input_text_care_method = input_text_result + "\n 발생한 질병을 관리할 수 있는 방법을 도구와 관리팁으로만 작성해. 치아위치나 치과 방문 이야기는 제외해. 하나의 텍스트로 작성해. 말투는 정중하게."
+    result = call_gpt(prompt=input_text_result)
+    detailed_result = call_gpt(prompt=input_text_detailed_result)
+    care_method = call_gpt(prompt=input_text_care_method)
+    
+    return {"result": result, "detailed_result": detailed_result, "care_method" : care_method}
 
 @app.post('/chat/')
 async def chat(input_data: InputText):

@@ -47,5 +47,5 @@ def calculate_danger_score(data, pain_score, bonus_per_symptom=5):
     total_score *= (1 + pain_weight)
 
     # 100점 만점으로 정규화
-    normalized_score = min(total_score, 100)  # 최대 100점으로 제한
+    normalized_score = 100-min(total_score, 100)  # 최대 100점으로 제한
     return round(normalized_score, 2)

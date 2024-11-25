@@ -19,3 +19,15 @@ class UserStatus(BaseModel):
     pain_level: Optional[int] = None
     result: Optional[Dict[str, List[Dict[str, float]]]] = {}
     chating: Optional[Dict[str, str]] = {}
+
+
+
+class Disease(BaseModel):
+    disease_name: str
+
+class result_report(BaseModel):
+    gum_diseases: Dict[str, List[Disease]]
+    symptomArea: List[str]
+    symptomText: List[str]
+    painLevel: int
+    tooth_diseases: Dict[str, List[Disease]] 

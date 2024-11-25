@@ -19,7 +19,7 @@ def call_gpt(prompt: str, max_tokens: int = 300):
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a helpful dental assistant."},
+                {"role": "system", "content": "You are a professional dentist"},
                 {
                     "role": "user",
                     "content": prompt
