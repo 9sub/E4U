@@ -47,6 +47,7 @@ def result_report_form(data):
     detailed_result = f"""
     예측된 구강질환: < {tooth_diseases_str} , {gum_diseases_str} >
     환자의 증상: < {symptom_text_str} >
+    환자 통증 위치: < {symptom_area_str} >
     """
     return result.strip(), detailed_result.strip()
 

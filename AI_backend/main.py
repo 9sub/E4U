@@ -53,7 +53,7 @@ async def predict(file: UploadFile = File(...)):
         
 
         # MPS 또는 CPU 선택
-        device = torch.device("mps" if torch.backends.mps.is_available else "cpu")
+        device = torch.device("cuda" if torch.cuda.is_available else "cpu")
 
         # 모델 로드
         model_path = './models/mobilenetv2_epoch20_lr1e-5_batch16.pth'
@@ -176,12 +176,14 @@ async def get_danger_point(pain_level: int):
 #     return {"pain_level": level, "message": f"Received pain level: {level}"}
 
 
+#"\n 환자의 증상과 질환을 통해 원인과 증상만 자세하게 분석하고 치아위치는 제외해. 하나의 텍스트로 작성해. 말투는 정중하게 사용자에게 말하는 것처럼, 마지막 인사는 제외해."
+
 @app.post('/result_report/')
 async def result_report(data : result_report):
     input_text_result, input_text_detailed_result = result_report_form(data)
 
     input_text_result += "\n 질병 위치와 치과방문 권유만 분석해. 하나의 텍스트로 작성해. 말투는 정중하게 마지막 인사는 제외해."
-    input_text_detailed_result += "\n 환자의 증상과 질환을 통해 원인과 증상만 자세하게 분석하고 치아위치는 제외해. 하나의 텍스트로 작성해. 말투는 정중하게 사용자에게 말하는 것처럼, 마지막 인사는 제외해."
+    input_text_detailed_result += "\n 환자의 증상과 통증위치를 예측된 구강질환으로 유추해. 하나의 텍스트로 작성해. 말투는 정중하게 사용자에게 말하는 것처럼, 마지막 인사는 제외해."
     input_text_care_method = input_text_result + "\n 발생한 질병을 관리할 수 있는 방법을 도구와 관리팁으로만 작성해. 치아위치나 치과 방문 이야기는 제외해. 하나의 텍스트로 작성해. 말투는 정중하게."
     result = call_gpt(prompt=input_text_result)
     detailed_result = call_gpt(prompt=input_text_detailed_result)
