@@ -15,7 +15,7 @@ tokenizer = T5Tokenizer(
 )
 
 # 예측 함수 정의
-def generate_answer(input_text: str) -> str:
+def generate_answer(input_text: str, max_length: int) -> str:
     model.eval()
     input_ids = tokenizer(
         input_text,
@@ -25,9 +25,12 @@ def generate_answer(input_text: str) -> str:
     with torch.no_grad():
         output = model.generate(
             input_ids,
-            max_length=300 ,
+            max_length=max_length ,
             no_repeat_ngram_size=2,
             do_sample=True,
+            top_k=50,  # 상위 50개의 후보를 고려
+            top_p=0.95,
+            temperature=0.7,
         )
 
     decoded_output = tokenizer.decode(

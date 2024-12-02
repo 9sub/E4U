@@ -24,32 +24,63 @@ def result_report_form(data):
          for tooth_num, diseases in data.tooth_diseases.items()]
     )
 
+    tooth_disease_names = [
+        translate_disease(d.disease_name)
+        for diseases in data.tooth_diseases.values()
+        for d in diseases
+    ]
+
+    tooth_disease_names_str = ", ".join(sorted(set(tooth_disease_names))) if tooth_disease_names else "질환없음"
+
     # 잇몸 질병 문자열 생성
     gum_diseases_str = ", ".join(
         [f"{region} : {', '.join(translate_disease(d.disease_name) for d in diseases)}"
          for region, diseases in data.gum_diseases.items() if diseases]
     )
 
+    gum_diseases_names = [
+        translate_disease(d.disease_name)
+        for diseases in data.gum_diseases.values()
+        for d in diseases
+    ]
+
+    gum_diseases_names_str = ", ".join(sorted(set(gum_diseases_names))) if gum_diseases_names else "질환없음"
+
     # 환자 통증 위치
     symptom_area_str = ", ".join(data.symptomArea)
 
+    if not symptom_area_str.strip():
+        symptom_area_str = "통증위치없음"
+
     # 환자의 증상
     symptom_text_str = ", ".join(data.symptomText)
+
+    if not symptom_text_str.strip():
+        symptom_text_str = "증상없음"
 
     # 환자 통증 정도
     pain_level_str = str(data.painLevel)
 
     # 최종 변환 결과
-    result = f"""
-    예측된 구강질환: < {tooth_diseases_str} , {gum_diseases_str} >
-    """
+    # result = f"""
+    # 예측된 구강질환: < {tooth_diseases_str} , {gum_diseases_str} >
+    # """
     
-    detailed_result = f"""
-    예측된 구강질환: < {tooth_diseases_str} , {gum_diseases_str} >
-    환자의 증상: < {symptom_text_str} >
-    환자 통증 위치: < {symptom_area_str} >
+    # detailed_result = f"""
+    # 예측된 구강질환: < {tooth_diseases_str} , {gum_diseases_str} >
+    # 환자의 증상: < {symptom_text_str} >
+    # 환자 통증 위치: < {symptom_area_str} >
+    # """
+
+    tooth_disease = f"""
+    < {tooth_diseases_str}, >
     """
-    return result.strip(), detailed_result.strip()
+
+    gum_disease = f"""
+    < {gum_diseases_str} >
+    """
+
+    return tooth_disease.strip(), gum_disease.strip(), symptom_area_str, tooth_disease_names_str , gum_diseases_names_str
 
 '''
     잇몸질병: < {gum_diseases_str} >

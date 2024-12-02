@@ -9,6 +9,18 @@ class GPTRequest(BaseModel):
     prompt: str
 
 
+class Disease(BaseModel):
+    disease_name: str
+    conf: float
+
+class result_report(BaseModel):
+    gum_diseases: Dict[str, List[Disease]]
+    symptomArea: List[str]
+    symptomText: List[str]
+    painLevel: int
+    tooth_diseases: Dict[str, List[Disease]] 
+
+
 class UserStatus(BaseModel):
     user_id: Optional[int] = None
     image_size: Optional[List[int]] = []
@@ -19,15 +31,5 @@ class UserStatus(BaseModel):
     pain_level: Optional[int] = None
     result: Optional[Dict[str, List[Dict[str, float]]]] = {}
     chating: Optional[Dict[str, str]] = {}
+    result_report_form: result_report = None
 
-
-
-class Disease(BaseModel):
-    disease_name: str
-
-class result_report(BaseModel):
-    gum_diseases: Dict[str, List[Disease]]
-    symptomArea: List[str]
-    symptomText: List[str]
-    painLevel: int
-    tooth_diseases: Dict[str, List[Disease]] 
