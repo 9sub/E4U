@@ -26,6 +26,8 @@ from utils.return_json_format import return_json_format
 from danger_point import calculate_danger_score
 from utils.analysis_results_form import analysis_results_form
 from utils.result_report_form import result_report_form
+from utils.return_weight_from_et5 import extract_disease_names,adjust_and_weight_conf
+from utils.visualization import visualization
 
 app = FastAPI()
 
@@ -75,11 +77,13 @@ def detect_image(file: UploadFile = File(...)):
     with open(temp_file, 'wb') as buffer:
         shutil.copyfileobj(file.file, buffer)
 
+    print(temp_file)
     user_status.image_size = check_image_size(temp_file)
-
+    print(user_status.image_size)
     # detection 모델 로드 및 추론
     detection_model = YOLO('./models/detection_final.pt')
-    detection_results = detection_model.predict(temp_file, conf=0.35, save=True, project="result", name="detection", exist_ok=True)
+    detection_results = detection_model.predict(temp_file, conf=0.1, save=True, project="result", name="detection", exist_ok=True)
+    #print(detection_results)
 
     # 결과 파일 경로 설정 및 확인
     detection_output_image_path = f"result/detection/{os.path.basename(temp_file)}"
@@ -88,6 +92,7 @@ def detect_image(file: UploadFile = File(...)):
     #detection 결과 이미지 path 저장, bounding box 저장
     user_status.detection_image_path = detection_output_image_path
     user_status.bounding_box=find_bounding_box(before_detection_image_path, detection_results)
+    #print(user_status.bounding_box)
 
     #segmentation 모델 로드 및 추론
     segmentation_model = YOLO('./models/segmentation_last.pt')
@@ -105,33 +110,58 @@ def detect_image(file: UploadFile = File(...)):
     user_status.segmentation_image_path = segmentation_output_image_path
     user_status.segmentation_data = read_segmentation_file(txt_file_path)
 
-    #print(user_status.bounding_box)
-
-    #print(user_status.segmentation_data)
     result = match_diseases_to_teeth_and_gums(user_status.bounding_box, user_status.segmentation_data, user_status.image_size[0], user_status.image_size[1])
-    #중복 제거
-    result = remove_dup(result)
+
+
+    #환자 텍스트 증상
+    symptomlist=[
+        "치아가 시린 통증은 어떤 질환인가요?",
+        "잇몸이 쑤셔요"
+    ]
+
+    #symptom = "치아가 시린 통증은 어떤 질환인가요?"
+    symptom = symptomlist[1]
+
+    if(symptom != ""):
+        et5_output = generate_answer(symptom,300)
+    else:
+        et5_output = ""
+    weight_disease=extract_disease_names(et5_output)
+
+    target_locations = {'tooth_disease': [12, 21], 'gum_diseases': ['하악_좌측중간', '하악_우측중간']}
+    print(result)
+    result = adjust_and_weight_conf(result, target_locations, weight_disease)
+    print(result)
+
+
+
+    '''오류나면 여기 풀기'''
+    #result = remove_dup(result)
 
     user_status.result = result
+    #시각화
+    visualization(before_detection_image_path,result)
+
+    #print(user_status.result)
     #print(user_status.result)
     # 출력 로직
-    print("===== 치아 질환 =====")
-    for tooth_num, diseases in result['tooth_diseases'].items():
-        print(f"치아 {tooth_num}번의 질환:")
-        for disease in diseases:
-            print(f"  - 질환 ID: {disease['disease_id']}")
-            print(f"    질환 이름: {disease['disease_name']}")
-            print(f"    신뢰도: {disease['confidence']:.2f}")
-            print(f"    위치: {disease['location']}")
+    # print("===== 치아 질환 =====")
+    # for tooth_num, diseases in result['tooth_diseases'].items():
+    #     print(f"치아 {tooth_num}번의 질환:")
+    #     for disease in diseases:
+    #         print(f"  - 질환 ID: {disease['disease_id']}")
+    #         print(f"    질환 이름: {disease['disease_name']}")
+    #         print(f"    신뢰도: {disease['confidence']:.2f}")
+    #         print(f"    위치: {disease['location']}")
 
-    print("\n===== 잇몸 질환 =====")
-    for region, diseases in result['gum_diseases'].items():
-        print(f"잇몸 부위: {region}")
-        for disease in diseases:
-            print(f"  - 질환 ID: {disease['disease_id']}")
-            print(f"    질환 이름: {disease['disease_name']}")
-            print(f"    신뢰도: {disease['confidence']:.2f}")
-            print(f"    위치: {disease['location']}")
+    # print("\n===== 잇몸 질환 =====")
+    # for region, diseases in result['gum_diseases'].items():
+    #     print(f"잇몸 부위: {region}")
+    #     for disease in diseases:
+    #         print(f"  - 질환 ID: {disease['disease_id']}")
+    #         print(f"    질환 이름: {disease['disease_name']}")
+    #         print(f"    신뢰도: {disease['confidence']:.2f}")
+    #         print(f"    위치: {disease['location']}")
 
     # 결과 파일이 생성될 때까지 최대 30초 대기
     timeout = 30
@@ -188,19 +218,7 @@ async def predict(input_data: InputText):
 async def result_report(data : result_report):
     user_status.result_report_form = data
     input_text_result, input_text_detailed_result,symptom_area_str, tooth_disease_name, gum_disease_name = result_report_form(data)
-    #print(input_text_result, input_text_detailed_result)
-    #input_text_result += "\n 질병 위치와 치과방문 권유만 분석해. 하나의 텍스트로 작성해. 말투는 정중하게 마지막 인사는 제외해."
-    #input_text_detailed_result += "\n 환자의 증상과 통증위치를 예측된 구강질환으로 유추해. 하나의 텍스트로 작성해. 말투는 정중하게 사용자에게 말하는 것처럼, 마지막 인사는 제외해."
-    #input_text_care_method = input_text_result + "\n 발생한 질병을 관리할 수 있는 방법을 도구와 관리팁으로만 작성해. 치아위치나 치과 방문 이야기는 제외해. 하나의 텍스트로 작성해. 말투는 정중하게."
     print(symptom_area_str)
-    #print(tooth_disease_name)
-    #print(gum_disease_name)
-
-    # 치아번호와 질환을 추출
-    # tooth_conditions = re.findall(r'치아번호 (\d+) : ([^,>]+)', input_text_result)
-
-    # # 기타 부위와 질환 추출
-    # other_conditions = re.findall(r'<\s*(.*?)\s*:\s*(.*?)\s*>', input_text_detailed_result)
 
     # 치아번호와 질환을 추출
     tooth_conditions = re.findall(r'치아번호 (\d+) : ([^,>]+)', input_text_result)

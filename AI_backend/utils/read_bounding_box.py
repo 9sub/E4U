@@ -38,7 +38,8 @@ def find_bounding_box(image_path: str, results):
             # 검출 결과 추가: [class_id, x, y, w, h, conf]
             detections.append([class_id, x, y, w, h, conf])
 
-    suppressed_boxes = nms(detections, threshold=0.5)
+    #suppressed_boxes = nms(detections, threshold=0.1)
+    suppressed_boxes = detections
 
     image = cv2.imread(image_path)
 
@@ -55,22 +56,22 @@ def find_bounding_box(image_path: str, results):
             })
 
             # 시각화: 박스 그리기
-            x_min = int((x - w / 2) * image.shape[1])
-            y_min = int((y - h / 2) * image.shape[0])
-            x_max = int((x + w / 2) * image.shape[1])
-            y_max = int((y + h / 2) * image.shape[0])
+            # x_min = int((x - w / 2) * image.shape[1])
+            # y_min = int((y - h / 2) * image.shape[0])
+            # x_max = int((x + w / 2) * image.shape[1])
+            # y_max = int((y + h / 2) * image.shape[0])
 
 
-            class_name = class_map.get(class_id)
-            # 박스 그리기 (클래스 ID 및 신뢰도 표시)
-            color = (0, 255, 0)  # 녹색
-            cv2.rectangle(image, (x_min, y_min), (x_max, y_max), color, 2)
-            label = f"{class_name} {conf:.2f}"
-            cv2.putText(image, label, (x_min, y_min - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+            # class_name = class_map.get(class_id)
+            # # 박스 그리기 (클래스 ID 및 신뢰도 표시)
+            # color = (0, 255, 0)  # 녹색
+            # cv2.rectangle(image, (x_min, y_min), (x_max, y_max), color, 2)
+            # label = f"{class_name} {conf:.2f}"
+            # cv2.putText(image, label, (x_min, y_min - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
 
-    output_image_path = f"result/detection/{os.path.basename(image_path)}"
-    cv2.imwrite(output_image_path, image)
-    print(f"시각화된 결과 이미지가 저장되었습니다: {output_image_path}")
+    #output_image_path = f"result/detection/{os.path.basename(image_path)}"
+    #cv2.imwrite(output_image_path, image)
+    #print(f"시각화된 결과 이미지가 저장되었습니다: {output_image_path}")
 
     return bbox
