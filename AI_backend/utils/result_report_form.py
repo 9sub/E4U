@@ -45,6 +45,23 @@ def result_report_form(data):
     ]
 
     gum_diseases_names_str = ", ".join(sorted(set(gum_diseases_names))) if gum_diseases_names else "질환없음"
+    
+
+    # 기타 질병 문자열 생성
+    etc_diseases_str = ", ".join(
+        [f"{region} : {', '.join(translate_disease(d.disease_name) for d in diseases)}"
+         for region, diseases in data.etc_diseases.items() if diseases]
+    )
+
+    etc_diseases_names = [
+        translate_disease(d.disease_name)
+        for diseases in data.etc_diseases.values()
+        for d in diseases
+    ]
+
+    etc_diseases_names_str = ", ".join(sorted(set(etc_diseases_names))) if etc_diseases_names else "질환없음"
+
+
 
     # 환자 통증 위치
     symptom_area_str = ", ".join(data.symptomArea)
@@ -80,7 +97,11 @@ def result_report_form(data):
     < {gum_diseases_str} >
     """
 
-    return tooth_disease.strip(), gum_disease.strip(), symptom_area_str, tooth_disease_names_str , gum_diseases_names_str
+    etc_disease = f"""
+    < {etc_diseases_str} >
+    """
+
+    return tooth_disease.strip(), gum_disease.strip(),etc_disease.strip(), symptom_area_str, tooth_disease_names_str , gum_diseases_names_str, etc_diseases_names_str
 
 '''
     잇몸질병: < {gum_diseases_str} >

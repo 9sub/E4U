@@ -11,6 +11,7 @@ import shutil
 import time
 from fastapi.middleware.cors import CORSMiddleware
 import re
+import json
 
 from predict.is_mouth_predict import preprocess_image, infer, load_model
 from predict.et5_predict import generate_answer
@@ -72,14 +73,19 @@ async def predict(file: UploadFile = File(...)):
 
 
 @app.post("/detect/")
-def detect_image(file: UploadFile = File(...)):
+def detect_image(file: UploadFile = File(...), additionalData: str = Form(...)):
+    try:
+        additional_data = json.loads(additionalData)
+    except json.JSONDecodeError as e:
+        return {"error": "Invalid JSON format in additionalData", "details": str(e)}
+    #print(additionalData)
     temp_file = f"./result/before_inference/{uuid.uuid4()}.jpg"
     with open(temp_file, 'wb') as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    print(temp_file)
+    #print(temp_file)
     user_status.image_size = check_image_size(temp_file)
-    print(user_status.image_size)
+    #print(user_status.image_size)
     # detection 모델 로드 및 추론
     detection_model = YOLO('./models/detection_final.pt')
     detection_results = detection_model.predict(temp_file, conf=0.1, save=True, project="result", name="detection", exist_ok=True)
@@ -110,9 +116,11 @@ def detect_image(file: UploadFile = File(...)):
     user_status.segmentation_image_path = segmentation_output_image_path
     user_status.segmentation_data = read_segmentation_file(txt_file_path)
 
+    #print(user_status.segmentation_data, user_status.bounding_box)
+    #print(result)
     result = match_diseases_to_teeth_and_gums(user_status.bounding_box, user_status.segmentation_data, user_status.image_size[0], user_status.image_size[1])
-
-
+    # print('************************')
+    # print(result)
     #환자 텍스트 증상
     symptomlist=[
         "치아가 시린 통증은 어떤 질환인가요?",
@@ -120,7 +128,7 @@ def detect_image(file: UploadFile = File(...)):
     ]
 
     #symptom = "치아가 시린 통증은 어떤 질환인가요?"
-    symptom = symptomlist[1]
+    symptom = additional_data["symptomText"]
 
     if(symptom != ""):
         et5_output = generate_answer(symptom,300)
@@ -128,10 +136,15 @@ def detect_image(file: UploadFile = File(...)):
         et5_output = ""
     weight_disease=extract_disease_names(et5_output)
 
-    target_locations = {'tooth_disease': [12, 21], 'gum_diseases': ['하악_좌측중간', '하악_우측중간']}
-    print(result)
+    # target_locations = {'tooth_disease': [12, 21], 'gum_diseases': ['하악_좌측중간', '하악_우측중간']}
+    target_locations = {
+    "tooth_disease": [int(d) for d in additional_data["tooth_disease"]],
+    "gum_diseases": additional_data["gum_disease"]
+    }
+
+    #print(result)
     result = adjust_and_weight_conf(result, target_locations, weight_disease)
-    print(result)
+    #print(result)
 
 
 
@@ -177,13 +190,8 @@ def detect_image(file: UploadFile = File(...)):
 @app.post("/detection_result/")
 def get_detection_result():
     json_format = return_json_format(user_status.result)
+    print(json_format)
     return json_format
-
-# @app.post("/mouth_front_left_right/")
-# async def detect_mouth_front_left_right(file: UploadFile = File(...)):
-#     temp_file = f"./result/mouth_front_left_right/before_inference/{uuid.uuid4()}.jpg"
-#     with open(temp_file, 'wb') as buffer:
-#         shutil.copyfileobj(file.file, buffer)
 
 
 @app.post('/danger_point/')
@@ -203,12 +211,6 @@ async def predict(input_data: InputText):
     return {"output": result}
 
 
-# @app.get('/get_painscore')
-# async def get_painscore(level: int):
-#     user_status.pain_level = level
-#     return {"pain_level": level, "message": f"Received pain level: {level}"}
-
-
 #"\n 환자의 증상과 질환을 통해 원인과 증상만 자세하게 분석하고 치아위치는 제외해. 하나의 텍스트로 작성해. 말투는 정중하게 사용자에게 말하는 것처럼, 마지막 인사는 제외해."
 
 
@@ -217,14 +219,27 @@ async def predict(input_data: InputText):
 @app.post('/result_report/')
 async def result_report(data : result_report):
     user_status.result_report_form = data
-    input_text_result, input_text_detailed_result,symptom_area_str, tooth_disease_name, gum_disease_name = result_report_form(data)
-    print(symptom_area_str)
+    tooth_disease, gum_disease,etc_disease,symptom_area_str, tooth_disease_name, gum_disease_name,etc_diseases_names_str = result_report_form(data)
 
     # 치아번호와 질환을 추출
-    tooth_conditions = re.findall(r'치아번호 (\d+) : ([^,>]+)', input_text_result)
+    tooth_conditions = re.findall(r'치아번호 (\d+) : ([^,>]+)', tooth_disease)
 
     # 기타 부위와 질환 추출
-    other_conditions = re.findall(r'<\s*(.*?)\s*:\s*(.*?)\s*>', input_text_detailed_result)
+    gum_conditions = re.findall(r'<\s*(.*?)\s*:\s*(.*?)\s*>', gum_disease)
+
+    etc_conditions = re.findall(r"<\s*(.*?)\s*:\s*(.*?)\s*>", etc_disease)
+    result = []
+    for region, diseases in etc_conditions:
+        # 질환을 쉼표로 분리하고 중복 제거 후 정렬
+        unique_diseases = ", ".join(sorted(set(d.strip() for d in diseases.split(","))))
+        # 결과를 "부위 : 질환" 형식으로 저장
+        result.append(f"{region} : {unique_diseases}")
+
+    # 최종 결과 문자열로 변환
+    etc_conditions = " , ".join(result)
+    print(tooth_conditions)
+    print(etc_conditions)
+
 
     # 질환별로 치아번호를 그룹화
     condition_map = {}
@@ -237,7 +252,7 @@ async def result_report(data : result_report):
     # 잇몸 영역 고치기
     output = "예측된 구강질환 위치는 다음과 같습니다.\n"
 
-    if tooth_disease_name=="질환없음" and gum_disease_name=="질환없음":
+    if tooth_disease_name=="질환없음" and gum_disease_name=="질환없음" and etc_diseases_names_str=="질환없음":
         output += "치아 질환: 질환없음\n"
         output += "잇몸 질환: 질환없음\n"
         output += "예측된 결과에서 환자분께서 가지고 있는 구강질환이 없습니다."
@@ -247,6 +262,8 @@ async def result_report(data : result_report):
             if ("상악" in symptom_area_str or "하악" in symptom_area_str):
             # 상악/하악으로 구성된 경우
                 detailed_result = f"예측된 결과에서 나타나는 질환은 없지만,\n{symptom_area_str.replace('[', '').replace(']', '')} 부분의 잇몸 통증이 있는것으로 보입니다. 치과에 방문에 자세한 진료를 받으시는 것을 추천드립니다"
+            elif "혀" in symptom_area_str or "입술" in symptom_area_str or "입천장" in symptom_area_str:
+                detailed_result = f"예측된 결과에서 나타나는 질환은 없지만,\n{symptom_area_str.replace('[', '').replace(']', '')} 부분의 통증이 있는것으로 보입니다. 치과에 방문에 자세한 진료를 받으시는 것을 추천드립니다."
             else:
             # 숫자로 구성된 경우
                 detailed_result = f"예측된 결과에서 나타나는 질환은 없지만,\n{symptom_area_str.replace('[', '').replace(']', '')} 번 치아의 통증이 있는것으로 보입니다. 치과에 방문에 자세한 진료를 받으시는 것을 추천드립니다."
@@ -256,8 +273,10 @@ async def result_report(data : result_report):
     for condition, teeth in condition_map.items():
         output += f"치아번호 {', '.join(teeth)} {condition}\n"
 
-    for location, condition in other_conditions:
+    for location, condition in gum_conditions:
         output += f"{location} {condition}\n"
+
+    output += f"{etc_conditions}\n"
 
     if symptom_area_str == "[]":
         output += f"\n환자분께서 느끼시는 통증은 없지만, 위와같은 질환으로 인해 발생한 치아질환을 관리하시는 것이 좋습니다."
@@ -265,6 +284,8 @@ async def result_report(data : result_report):
         if ("상악" in symptom_area_str or "하악" in symptom_area_str):
             # 상악/하악으로 구성된 경우
             output += f"위와 같은 질환으로 인해 환자분께서 느끼시는 {symptom_area_str.replace('[', '').replace(']', '')} 부분의 잇몸 통증이 발생한 것으로 보입니다."
+        elif "혀" in symptom_area_str or "입술" in symptom_area_str or "입천장" in symptom_area_str:
+            output += f"위와 같은 질환으로 인해 환자분께서 느끼시는 {symptom_area_str.replace('[', '').replace(']', '')} 부분의 통증이 발생한 것으로 보입니다."
         else:
             # 숫자로 구성된 경우
             output += f"위와 같은 질환으로 인해 환자분께서 느끼시는 {symptom_area_str.replace('[', '').replace(']', '')} 번 치아의 통증이 발생한 것으로 보입니다."

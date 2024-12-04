@@ -15,6 +15,7 @@ class Disease(BaseModel):
 
 class result_report(BaseModel):
     gum_diseases: Dict[str, List[Disease]]
+    etc_diseases: Dict[str, List[Disease]]
     symptomArea: List[str]
     symptomText: List[str]
     painLevel: int

@@ -92,6 +92,30 @@ def visualization(before_inference_path, data):
                 fill=color
             )
 
+    # Add bounding boxes and labels for etc diseases by region
+    for region, diseases in data['etc'].items():
+        for disease in diseases:
+            x_min, y_min, box_width, box_height = yolo_to_pixel(disease['location'], img_width, img_height)
+            disease_name = disease['disease_name']
+
+            # Select color for "etc" diseases
+            color = tuple([int(c * 255) for c in disease_color_map.get(disease_name, [0, 255, 0])])
+
+            # Draw bounding box
+            draw.rectangle(
+                [(x_min, y_min), (x_min + box_width, y_min + box_height)],
+                outline=color,
+                width=3
+            )
+
+            # Draw text label with disease name and region
+            draw.text(
+                (x_min, y_min - 15),
+                f"{region}: {disease_name}",
+                fill=color
+            )
+    if image.mode == "RGBA":
+        image = image.convert("RGB")
     # Save the modified image
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     image.save(output_path)

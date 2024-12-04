@@ -73,7 +73,8 @@ def match_diseases_to_teeth_and_gums(detections, segmentations, img_width, img_h
     """
     tooth_diseases = {}
     gum_diseases = {region: [] for region in GUM_REGIONS.keys()}
-    
+    etc_diseases = {}
+
     # detection 데이터 형식 변환
     formatted_detections = []
     for det in detections:
@@ -118,9 +119,22 @@ def match_diseases_to_teeth_and_gums(detections, segmentations, img_width, img_h
             "confidence": detection["conf"],
             "location": detection["points"]
         }
+
+
+        #etc
+        if disease_name in ['CaS', 'CoS','OLP']:
+            region = "혀" if disease_name in ['CaS', 'OLP'] else "입술"
+            if region not in etc_diseases:
+                etc_diseases[region] = []
+            etc_diseases[region].append({
+                "disease_id": detection["class_id"],
+                "disease_name": disease_name,
+                "confidence": detection["conf"],
+                "location": detection["points"] 
+            })
         
         # 잇몸 질환인 경우
-        if disease_name in GUM_DISEASES:
+        elif disease_name in GUM_DISEASES:
             region = get_gum_region(center_x, center_y, img_width, img_height)
             if region:
                 gum_diseases[region].append(disease_info)
@@ -137,5 +151,6 @@ def match_diseases_to_teeth_and_gums(detections, segmentations, img_width, img_h
     
     return {
         "tooth_diseases": tooth_diseases,
-        "gum_diseases": gum_diseases
+        "gum_diseases": gum_diseases,
+        "etc" : etc_diseases
     }
