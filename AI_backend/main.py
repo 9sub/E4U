@@ -78,7 +78,7 @@ def detect_image(file: UploadFile = File(...), additionalData: str = Form(...)):
         additional_data = json.loads(additionalData)
     except json.JSONDecodeError as e:
         return {"error": "Invalid JSON format in additionalData", "details": str(e)}
-    #print(additionalData)
+    print(additionalData)
     temp_file = f"./result/before_inference/{uuid.uuid4()}.jpg"
     with open(temp_file, 'wb') as buffer:
         shutil.copyfileobj(file.file, buffer)
@@ -137,14 +137,31 @@ def detect_image(file: UploadFile = File(...), additionalData: str = Form(...)):
     weight_disease=extract_disease_names(et5_output)
 
     # target_locations = {'tooth_disease': [12, 21], 'gum_diseases': ['하악_좌측중간', '하악_우측중간']}
-    target_locations = {
-    "tooth_disease": [int(d) for d in additional_data["tooth_disease"]],
-    "gum_diseases": additional_data["gum_disease"]
-    }
+    tooth_disease = []
+    gum_disease = []
+    etc = []
 
-    #print(result)
-    result = adjust_and_weight_conf(result, target_locations, weight_disease)
-    #print(result)
+    # Classification logic
+    for area in additional_data.get("symptomArea", []):
+        if area.isdigit():  # 숫자형 값
+            tooth_disease.append(int(area))
+        elif "상악" in area or "하악" in area:  # "상악" 또는 "하악"
+            gum_disease.append(area)
+        elif area in ["혀", "입천장", "입술"]:  # "혀", "입천장", "입술"
+            etc.append(area)
+
+    # Output dictionary
+    target_locations = {
+        "tooth_disease": tooth_disease,
+        "gum_diseases": gum_disease,
+        "etc": etc
+    }
+    pain_level = additional_data.get("painLevel",0)
+
+    print("before:",result)
+    print('************************')
+    result = adjust_and_weight_conf(result, target_locations, weight_disease,pain_level)
+    print("after:",result)
 
 
 
@@ -237,8 +254,8 @@ async def result_report(data : result_report):
 
     # 최종 결과 문자열로 변환
     etc_conditions = " , ".join(result)
-    print(tooth_conditions)
-    print(etc_conditions)
+    #print(tooth_conditions)
+    #print(etc_conditions)
 
 
     # 질환별로 치아번호를 그룹화

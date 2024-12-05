@@ -38,22 +38,29 @@ class_map = {
     10: 'ToothDiscoloration'
 }
 
-def adjust_and_weight_conf(data, target_locations, disease_names):
+def adjust_and_weight_conf(data, target_locations, disease_names,pain_level):
     # Tooth diseases 가중치 증가
     for tooth_id in target_locations['tooth_disease']:
         if tooth_id in data['tooth_diseases']:
             for entry in data['tooth_diseases'][tooth_id]:
-                if entry['disease_name'] in disease_names:
-                    #print(entry['disease_name'], entry['confidence'])
-                    entry['confidence'] *= 1.2  # conf 값 1.2배 증가
-                    #print(entry['disease_name'], entry['confidence'])
+                entry['confidence'] *= (1 + 0.05*pain_level)
+                if entry['disease_name'] in disease_names: # 그냥 해당위치에 가중치
+                    entry['confidence'] *= (1 + 0.1*pain_level)  # conf 값 1.2배 증가
 
     # Gum diseases 가중치 증가
     for gum_location in target_locations['gum_diseases']:
         if gum_location in data['gum_diseases']:
             for entry in data['gum_diseases'][gum_location]:
+                entry['confidence'] *= (1 + 0.05*pain_level)
                 if entry['disease_name'] in disease_names:
-                    entry['confidence'] *= 1.2  # conf 값 1.2배 증가
+                    entry['confidence'] *= (1 + + 0.1*pain_level)  # conf 값 1.2배 증가
+
+    for etc in target_locations['etc']:
+        if etc in data['etc']:
+            for entry in data['etc'][etc]:
+                entry['confidence'] *= (1 + 0.05*pain_level)
+                if entry['disease_name'] in disease_names:
+                    entry['confidence'] *= (1 + 0.1*pain_level)
 
     #conf < 0.35 필터링
     data['tooth_diseases'] = {
@@ -67,6 +74,13 @@ def adjust_and_weight_conf(data, target_locations, disease_names):
             entry for entry in entries if entry['confidence'] >= 0.35
         ]
         for gum_location, entries in data['gum_diseases'].items()
+    }
+
+    data['etc'] = {
+        etc: [
+            entry for entry in entries if entry['confidence'] >= 0.35
+        ]
+        for etc, entries in data['etc'].items()
     }
 
     return data
