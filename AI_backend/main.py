@@ -15,9 +15,7 @@ import json
 
 from predict.is_mouth_predict import preprocess_image, infer, load_model
 from predict.et5_predict import generate_answer
-from schema import InputText, GPTRequest, UserStatus, result_report
-from gpt import call_gpt
-from utils.calculate_max_tokens import check_max_tokens
+from schema import InputText, UserStatus, result_report
 from utils.read_bounding_box import find_bounding_box
 from utils.read_segmentation import read_segmentation_file
 from utils.check_image_size import check_image_size
@@ -120,7 +118,8 @@ def detect_image(file: UploadFile = File(...), additionalData: str = Form(...)):
     #print(result)
     result = match_diseases_to_teeth_and_gums(user_status.bounding_box, user_status.segmentation_data, user_status.image_size[0], user_status.image_size[1])
     # print('************************')
-    # print(result)
+    #print(result)
+    print('************************')
     #환자 텍스트 증상
     symptomlist=[
         "치아가 시린 통증은 어떤 질환인가요?",
@@ -332,12 +331,12 @@ async def result_report(data : result_report):
     
     return {"result": output, "detailed_result": detailed_result, "care_method" : care_method}
 
-@app.post('/chat/')
-async def chat(input_data: InputText):
-    input_text = input_data.text
-    result = call_gpt(prompt=input_text)
+# @app.post('/chat/')
+# async def chat(input_data: InputText):
+#     input_text = input_data.text
+#     result = call_gpt(prompt=input_text)
     
-    return {"output": result}
+#     return {"output": result}
 
 '''
 {

@@ -106,6 +106,7 @@ def match_diseases_to_teeth_and_gums(detections, segmentations, img_width, img_h
             formatted_segments.append(seg)
 
     # 각 detection에 대해 처리
+    before_tooth_num =-1
     for detection in formatted_detections:
         disease_name = DISEASE_CLASS_MAP[detection["class_id"]]
         
@@ -123,6 +124,7 @@ def match_diseases_to_teeth_and_gums(detections, segmentations, img_width, img_h
 
         #etc
         if disease_name in ['CaS', 'CoS','OLP']:
+            #print("etc:",disease_name)
             region = "혀" if disease_name in ['CaS', 'OLP'] else "입술"
             if region not in etc_diseases:
                 etc_diseases[region] = []
@@ -135,6 +137,7 @@ def match_diseases_to_teeth_and_gums(detections, segmentations, img_width, img_h
         
         # 잇몸 질환인 경우
         elif disease_name in GUM_DISEASES:
+            #print("gum:",disease_name)
             region = get_gum_region(center_x, center_y, img_width, img_height)
             if region:
                 gum_diseases[region].append(disease_info)
@@ -142,13 +145,27 @@ def match_diseases_to_teeth_and_gums(detections, segmentations, img_width, img_h
         # 치아 질환인 경우
         else:
             # 각 치아 세그멘테이션과 매칭
+            #print("tooth:",disease_name)
+            if before_tooth_num == -1:
+                tooth_number = REVERSE_FDI_MAPPING[8]
+            else:
+                tooth_number = before_tooth_num
+            tmp=0
             for seg in formatted_segments:
-                if point_in_polygon((center_x, center_y), seg["points"]):
-                    tooth_number = REVERSE_FDI_MAPPING[seg["class_id"]]
-                    if tooth_number not in tooth_diseases:
-                        tooth_diseases[tooth_number] = []
-                    tooth_diseases[tooth_number].append(disease_info)
-    
+                if disease_name == "Hypodontia" and tmp==0:
+                        tooth_diseases[tooth_number].append(disease_info)
+                        tmp+=1
+                        
+                else:
+                    if point_in_polygon((center_x, center_y), seg["points"]):
+                        tooth_number = REVERSE_FDI_MAPPING[seg["class_id"]]     
+                        before_tooth_num = tooth_number
+                        if tooth_number not in tooth_diseases:
+                            tooth_diseases[tooth_number] = []
+                        tooth_diseases[tooth_number].append(disease_info)
+
+
+    #print(tooth_diseases)
     return {
         "tooth_diseases": tooth_diseases,
         "gum_diseases": gum_diseases,
