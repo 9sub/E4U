@@ -78,17 +78,6 @@ def result_report_form(data):
     # 환자 통증 정도
     pain_level_str = str(data.painLevel)
 
-    # 최종 변환 결과
-    # result = f"""
-    # 예측된 구강질환: < {tooth_diseases_str} , {gum_diseases_str} >
-    # """
-    
-    # detailed_result = f"""
-    # 예측된 구강질환: < {tooth_diseases_str} , {gum_diseases_str} >
-    # 환자의 증상: < {symptom_text_str} >
-    # 환자 통증 위치: < {symptom_area_str} >
-    # """
-
     tooth_disease = f"""
     < {tooth_diseases_str}, >
     """

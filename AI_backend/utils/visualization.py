@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 import seaborn as sns
 import os
 
@@ -48,7 +48,6 @@ def visualization(before_inference_path, data):
     for tooth, diseases in data['tooth_diseases'].items():
         for disease in diseases:
             x_min, y_min, box_width, box_height = yolo_to_pixel(disease['location'], img_width, img_height)
-            confidence = disease['confidence']
             disease_name = disease['disease_name']
 
             # Select color for disease
@@ -72,7 +71,6 @@ def visualization(before_inference_path, data):
     for region, diseases in data['gum_diseases'].items():
         for disease in diseases:
             x_min, y_min, box_width, box_height = yolo_to_pixel(disease['location'], img_width, img_height)
-            confidence = disease['confidence']
             disease_name = disease['disease_name']
 
             # Select color for disease
