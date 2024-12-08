@@ -46,7 +46,7 @@ def calculate_danger_score(data, pain_score, bonus_per_symptom=5):
         for disease in diseases:
             severity = severity_weights.get(disease["disease_name"], 1)
             confidence = disease.get("confidence", 1)  # confidence가 없으면 기본값 1
-            total_score -= severity * confidence * 0.9
+            total_score -= severity * confidence * 1.2
             total_symptoms += 1
 
     print(total_score, total_symptoms)

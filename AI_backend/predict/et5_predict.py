@@ -29,8 +29,8 @@ def generate_answer(input_text: str, max_length: int) -> str:
             no_repeat_ngram_size=2,
             do_sample=True,
             top_k=50,  # 상위 50개의 후보를 고려
-            top_p=0.95,
-            temperature=0.7,
+            top_p=0.8,
+            temperature=0.1,
         )
 
     decoded_output = tokenizer.decode(

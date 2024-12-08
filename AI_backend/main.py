@@ -110,23 +110,12 @@ def detect_image(file: UploadFile = File(...), additionalData: str = Form(...)):
 
     txt_filename = os.path.splitext(os.path.basename(temp_file))[0] + ".txt"
     txt_file_path = os.path.join("result/segmentation/labels", txt_filename)
-    
+    time.sleep(3)
     user_status.segmentation_image_path = segmentation_output_image_path
     user_status.segmentation_data = read_segmentation_file(txt_file_path)
 
-    #print(user_status.segmentation_data, user_status.bounding_box)
-    #print(result)
     result = match_diseases_to_teeth_and_gums(user_status.bounding_box, user_status.segmentation_data, user_status.image_size[0], user_status.image_size[1])
-    # print('************************')
-    #print(result)
-    print('************************')
-    #환자 텍스트 증상
-    symptomlist=[
-        "치아가 시린 통증은 어떤 질환인가요?",
-        "잇몸이 쑤셔요"
-    ]
 
-    #symptom = "치아가 시린 통증은 어떤 질환인가요?"
     symptom = additional_data["symptomText"]
 
     if(symptom != ""):
@@ -135,12 +124,10 @@ def detect_image(file: UploadFile = File(...), additionalData: str = Form(...)):
         et5_output = ""
     weight_disease=extract_disease_names(et5_output)
 
-    # target_locations = {'tooth_disease': [12, 21], 'gum_diseases': ['하악_좌측중간', '하악_우측중간']}
     tooth_disease = []
     gum_disease = []
     etc = []
 
-    # Classification logic
     for area in additional_data.get("symptomArea", []):
         if area.isdigit():  # 숫자형 값
             tooth_disease.append(int(area))
@@ -149,7 +136,6 @@ def detect_image(file: UploadFile = File(...), additionalData: str = Form(...)):
         elif area in ["혀", "입천장", "입술"]:  # "혀", "입천장", "입술"
             etc.append(area)
 
-    # Output dictionary
     target_locations = {
         "tooth_disease": tooth_disease,
         "gum_diseases": gum_disease,
@@ -157,40 +143,12 @@ def detect_image(file: UploadFile = File(...), additionalData: str = Form(...)):
     }
     pain_level = additional_data.get("painLevel",0)
 
-    print("before:",result)
-    print('************************')
     result = adjust_and_weight_conf(result, target_locations, weight_disease,pain_level)
-    print("after:",result)
 
-
-
-    '''오류나면 여기 풀기'''
-    #result = remove_dup(result)
 
     user_status.result = result
     #시각화
     visualization(before_detection_image_path,result)
-
-    #print(user_status.result)
-    #print(user_status.result)
-    # 출력 로직
-    # print("===== 치아 질환 =====")
-    # for tooth_num, diseases in result['tooth_diseases'].items():
-    #     print(f"치아 {tooth_num}번의 질환:")
-    #     for disease in diseases:
-    #         print(f"  - 질환 ID: {disease['disease_id']}")
-    #         print(f"    질환 이름: {disease['disease_name']}")
-    #         print(f"    신뢰도: {disease['confidence']:.2f}")
-    #         print(f"    위치: {disease['location']}")
-
-    # print("\n===== 잇몸 질환 =====")
-    # for region, diseases in result['gum_diseases'].items():
-    #     print(f"잇몸 부위: {region}")
-    #     for disease in diseases:
-    #         print(f"  - 질환 ID: {disease['disease_id']}")
-    #         print(f"    질환 이름: {disease['disease_name']}")
-    #         print(f"    신뢰도: {disease['confidence']:.2f}")
-    #         print(f"    위치: {disease['location']}")
 
     # 결과 파일이 생성될 때까지 최대 30초 대기
     timeout = 30
@@ -212,10 +170,8 @@ def get_detection_result():
 
 @app.post('/danger_point/')
 async def get_danger_point(pain_level: int):
-    #print(user_status.result_report_form)
     user_status.pain_level = pain_level
     danger_point=calculate_danger_score(user_status.result_report_form.dict(), user_status.pain_level)
-    #print(danger_point)
     return {"danger_point": danger_point}
     
 
@@ -226,11 +182,6 @@ async def predict(input_data: InputText):
     result = generate_answer(input_text, 300)
     return {"output": result}
 
-
-#"\n 환자의 증상과 질환을 통해 원인과 증상만 자세하게 분석하고 치아위치는 제외해. 하나의 텍스트로 작성해. 말투는 정중하게 사용자에게 말하는 것처럼, 마지막 인사는 제외해."
-
-
-#result 포맷 정해서 넣기
 
 @app.post('/result_report/')
 async def result_report(data : result_report):
@@ -253,8 +204,6 @@ async def result_report(data : result_report):
 
     # 최종 결과 문자열로 변환
     etc_conditions = " , ".join(result)
-    #print(tooth_conditions)
-    #print(etc_conditions)
 
 
     # 질환별로 치아번호를 그룹화
@@ -306,40 +255,19 @@ async def result_report(data : result_report):
             # 숫자로 구성된 경우
             output += f"위와 같은 질환으로 인해 환자분께서 느끼시는 {symptom_area_str.replace('[', '').replace(']', '')} 번 치아의 통증이 발생한 것으로 보입니다."
 
-        #output += f"\n위와같은 질환으로 인해 환자분께서 느끼시는 {generate_message(symptom_area_str)} 번 치아의 통증이 발생한 것으로 보입니다."
-
-    #{symptom_area_str.replace('[', '').replace(']', '')}
-
-    # 결과 출력
-    #print(output)
-
-
-    #result = call_gpt(prompt=input_text_result+"구강질환 보고서를 뽑아줘")
-    #print(result)
-    #detailed_result = call_gpt(prompt=input_text_detailed_result)
-
-    disease_name = tooth_disease_name + gum_disease_name
+    disease_name = ""
+    if(tooth_disease_name!="질환없음"):
+        disease_name = tooth_disease_name
+    if(gum_disease_name!="질환없음"):
+        disease_name += gum_disease_name
+    if etc_diseases_names_str!="질환없음":
+        disease_name += etc_diseases_names_str
+    print(disease_name)
     input_text_detailed_result_disease_name = disease_name + "증상"
-    #input_text_care_method1 = disease_name + "치료"
     input_text_care_method2 = disease_name + "예방"
 
 
-    #result = generate_answer(input_text_detailed_result,300)
     detailed_result = generate_answer(input_text_detailed_result_disease_name,300)
-    #care_method = call_gpt(prompt=input_text_care_method)
     care_method = generate_answer(input_text_care_method2,300)
     
     return {"result": output, "detailed_result": detailed_result, "care_method" : care_method}
-
-# @app.post('/chat/')
-# async def chat(input_data: InputText):
-#     input_text = input_data.text
-#     result = call_gpt(prompt=input_text)
-    
-#     return {"output": result}
-
-'''
-{
-  "text": "(tooth_num 11 : 충치 tooth_num 31 : 충치 , 위와 아래 치아가 너무 시린 증상이 있어) 괄호 안에는 각 치아별로 질환이 적혀져 있고 쉼표 뒤에는 환자의 증상이 있어 너가 구강질환에 대한 진단을 해줘"
-}
-'''
