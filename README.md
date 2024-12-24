@@ -23,6 +23,10 @@
 - [Project Background](#Background)
 - [Service Arichitecture](#Service)
 - [Modeling](#Modeling)
+- [Development Environment](#dev_env)
+- [Link](#link)
+
+  
 
 ## Demo <a id='Demo'></a>
 <div align="center">
@@ -120,7 +124,7 @@
 
 ---
 
-## Development environment
+## Development environment <a id="dev_env">
 
 Frontend와 Backend에 관한 내용은 [링크](https://github.com/SejongUnivE4U)에서 보실 수 있습니다.
 
@@ -131,5 +135,5 @@ Frontend와 Backend에 관한 내용은 [링크](https://github.com/SejongUnivE4
 
 
 
-## Link
+## Link <a id="link">
 - [종합설계보고서](https://github.com/user-attachments/files/18227384/2024-2._3.pdf)
